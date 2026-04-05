@@ -1,0 +1,6 @@
+branch-protection:
+  policies:
+    - target: default_branch
+      message: Нельзя пушить в main. Создай Pull request
+      rules:
+        - prevent_non_pr_changes
