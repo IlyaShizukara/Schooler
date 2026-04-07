@@ -1,202 +1,160 @@
-import json
-import os
+import flet as ft
+from Schooler import Schooler
 from datetime import datetime
 
 
-class Schooler:
-    def __init__(self):
-        self.schedule = {}
-        self.homeworks = {}
-        self.useful_links = []
-        self.data_file = 'school_data.json'
-        self.load_data()
+def main(page: ft.Page):
+    page.title = "Schooler"
+    page.theme_mode = ft.ThemeMode.DARK
+    page.window_width = 400
+    page.window_height = 700
+    page.window_resizable = False
+    page.padding = 20
 
-    def load_data(self):
-        if os.path.exists(self.data_file):
-            with open(self.data_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                self.schedule = data.get("schedule", {})
-                self.homeworks = data.get("homeworks", {})
-                self.useful_links = data.get("useful_links", [])
+    app = Schooler()
+
+    def update_content(content):
+        page.controls.clear()
+        page.add(content)
+        page.update()
+
+    def show_main_menu():
+        title = ft.Text("Schooler".upper(), size=28, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
+
+        btn_schedule = ft.ElevatedButton(
+            "Расписание",
+            on_click=lambda _: show_days_list('schedule'),
+            width=300,
+            height=50
+        )
+        btn_homework = ft.ElevatedButton(
+            "Домашнее задание",
+            on_click=lambda _: show_days_list('homework'),
+            width=300,
+            height=50
+        )
+        btn_tomorrow_hw = ft.ElevatedButton(
+            "Домашка на завтра",
+            on_click=lambda _: show_tomorrow_homework(),
+            width=300,
+            height=50
+        )
+        btn_search = ft.ElevatedButton(
+            "Поиск",
+            on_click=lambda _: show_search(),
+            width=300,
+            height=50
+        )
+        btn_add_hw = ft.ElevatedButton(
+            "Добавить домашку",
+            on_click=lambda _: show_add_homework(),
+            width=300,
+            height=50
+        )
+
+        content = ft.Column(
+            [
+                ft.Container(height=20),
+                title,
+                ft.Container(height=30),
+                btn_schedule,
+                ft.Container(height=10),
+                btn_homework,
+                ft.Container(height=10),
+                btn_tomorrow_hw,
+                ft.Container(height=10),
+                btn_search,
+                ft.Container(height=10),
+                btn_add_hw
+
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        )
+        update_content(content)
+
+    def show_days_list(mode):
+        title = ft.Text("Выберите день", size=24, weight=ft.FontWeight.BOLD)
+
+        day_buttons = []
+        for day in app.schedule.keys():
+            btn = ft.ElevatedButton(
+                day,
+                on_click=lambda _, d=day: show_day_detail(d, mode),
+                width=250
+            )
+            day_buttons.append(btn)
+
+        back_btn = ft.TextButton(
+            "<- Назад",
+            on_click=lambda _: show_main_menu()
+        )
+
+        content = ft.Column(
+            [title, ft.Container(height=20)] + day_buttons + [ft.Container(height=20), back_btn],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+        )
+
+        update_content(content)
+
+    def show_day_detail(day, mode):
+        title = ft.Text(day, size=24, weight=ft.FontWeight.BOLD)
+
+        if mode == 'schedule':
+            subjects = app.schedule.get(day, [])
+            subjects_items = []
+            for i, subject in enumerate(subjects, 1):
+                subject_text = ft.Text(f"{i}. {subject}", size=16)
+
+                subjects_items.append(subject_text)
+
+            schedule_card = ft.Card(
+                ft.Container(
+                    content=ft.Column(
+                        [ft.Text("Расписание", size=18, weight=ft.FontWeight.BOLD)] + subjects_items,
+                        spacing=10
+
+                    ),
+                    padding=15
+                )
+            )
+
+            content = ft.Column([title, ft.Container(height=20), schedule_card], spacing=10)
 
         else:
-            pass  # значения по умолчанию
-            self.save_data()
+            day_hw = app.homeworks.get(day, {})
+            non_empty = {s: t for s, t in day_hw.items() if t and t.strip()}
 
-    def save_data(self):
-        data = {
-            'schedule': self.schedule,
-            'homeworks': self.homeworks,
-            'useful_links': self.useful_links,
-        }
-        with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    def show_day(self, day):
-        print('\n' + '-' * 50)
-        print(day.upper())
-        print('-' * 50)
-
-        if day in self.schedule:
-            print("\nРАСПИСАНИЕ")
-            for i, subject in enumerate(self.schedule[day], 1):
-                print(f' {i}. {subject}')
-        else:
-            print("День не найден!")
-
-        print('\nДомашнее задания: '.upper())
-        day_hw = self.homeworks.get(day, {})
-        if day_hw:
-            for subject, task in day_hw.items():
-                print(f' * {subject}: {task}')
-        else:
-            print("Нет домашнего задания!")
-
-    def show_all_week(self):
-        for day in self.schedule.keys():
-            self.show_day(day)
-
-    def add_homework(self):
-        print(f"\n{'-' * 50}")
-        print("ДОБАВЛЕНИЕ ДОМАШНЕГО ЗАДАНИЯ")
-        print(f"{'-' * 50}")
-
-        print("\nДни недели:", ", ".join(self.schedule.keys()))
-        day = input("Выберите день: ")
-
-        if day not in self.schedule:
-            print("День не найден!")
-            return
-
-        # Показываем предметы
-        print(f"\nПредметы в {day}:")
-        for i, subject in enumerate(self.schedule[day], 1):
-            if (day in self.homeworks and
-                    subject in self.homeworks[day] and
-                    self.homeworks[day][subject] and
-                    self.homeworks[day][subject].strip()):
-                print(f"  {i}. {subject} (уже есть задание)")
-            else:
-                print(f"  {i}. {subject}")
-
-        subject = input("\nВведите предмет: ")
-
-        if subject not in self.schedule[day]:
-            print(f"Предмет '{subject}' не найден!")
-            return
-
-        task = input("Введите задание: ").strip()
-
-        if not task:
-            print("Задание не может быть пустым!")
-            return
-
-        if (day in self.homeworks and
-                subject in self.homeworks[day] and
-                self.homeworks[day][subject] and
-                self.homeworks[day][subject].strip()):
-            print(f"\nУже есть задание: {self.homeworks[day][subject]}")
-            rewrite = input("Заменить? (да/нет): ")
-            if rewrite.lower() != "да":
-                print("Отменено")
-                return
-
-        if day not in self.homeworks:
-            self.homeworks[day] = {}
-
-        self.homeworks[day][subject] = task
-        self.save_data()
-
-        print(f"\nДомашка добавлена!")
-        print(f"   {day} | {subject} → {task}")
-
-    def edit_homework(self):
-        print(f"\n{'-' * 50}")
-        print("РЕДАКТИРОВАНИЕ ДОМАШНЕГО ЗАДАНИЯ")
-        print(f"{'-' * 50}")
-
-        days_with_hw = []
-        for day, tasks in self.homeworks.items():
-            non_empty = {subj: task for subj, task in tasks.items() if task and task.strip()}
             if non_empty:
-                days_with_hw.append(day)
+                hw_items = []
+                for subject, task in non_empty.items():
+                    hw_items.append(ft.Text(f"* {subject}: {task}", size=16))
 
-        if not days_with_hw:
-            print("\nНет домашних заданий!")
-            return
-
-        print("\nДни с домашними заданиями:")
-        for day in days_with_hw:
-            non_empty_count = len([t for t in self.homeworks[day].values() if t and t.strip()])
-            print(f"  • {day} ({non_empty_count} заданий)")
-
-        day = input("\nВыберите день: ")
-
-        if day not in self.homeworks:
-            print("На этот день нет заданий!")
-            return
-
-        non_empty_items = [(subj, task) for subj, task in self.homeworks[day].items() if task and task.strip()]
-
-        if not non_empty_items:
-            print("На этот день нет заданий!")
-            return
-
-        print(f"\nЗадания на {day}:")
-        for i, (subject, task) in enumerate(non_empty_items, 1):
-            print(f"  {i}. {subject}: {task}")
-
-        print("\n1. Редактировать")
-        print("2. Удалить")
-        print("3. Назад")
-
-        choice = input("Выберите: ")
-
-        if choice == '1':
-            subject = input("Предмет: ")
-            if subject in self.homeworks[day]:
-                current = self.homeworks[day][subject]
-                if current:
-                    print(f"Текущее: {current}")
-                new_task = input("Новое задание: ").strip()
-
-                if not new_task:
-                    del self.homeworks[day][subject]
-                    print(f"Задание удалено (было пустым)")
-                else:
-                    self.homeworks[day][subject] = new_task
-                    print(f"Обновлено!")
-
-                self.save_data()
+                hw_card = ft.Card(
+                    ft.Container(
+                        content=ft.Column(
+                            [ft.Text("Домашнее задание", size=18, weight=ft.FontWeight.BOLD)] + hw_items,
+                            spacing=10
+                        ),
+                        padding=15
+                    )
+                )
             else:
-                print("Не найдено!")
+                hw_card = ft.Card(
+                    ft.Container(
+                        content=ft.Text("Нет домашнего задания", size=16),
+                        padding=15
+                    )
+                )
 
-        elif choice == '2':
-            subject = input("Предмет: ")
-            if subject in self.homeworks[day]:
-                del self.homeworks[day][subject]
-                self.save_data()
-                print(f"Удалено!")
-            else:
-                print("Не найдено!")
+            content = ft.Column([title, ft.Container(height=20), hw_card], spacing=10)
 
-    def search_homework(self):
-        query = input("\nВведите предмет: ").lower()
-        found = []
+        back_btn = ft.TextButton("<- Назад", on_click=lambda _: show_days_list(mode))
+        content.controls.append(ft.Container(height=20))
+        content.controls.append(back_btn)
 
-        for day, tasks in self.homeworks.items():
-            for subject, task in tasks.items():
-                if query in subject.lower():
-                    found.append((day, subject, task))
+        update_content(ft.Column([content], horizontal_alignment=ft.CrossAxisAlignment.CENTER))
 
-        if found:
-            print(f"\nНайдено {len(found)}:")
-            for day, subject, task in found:
-                print(f"  * {day} | {subject}: {task}")
-        else:
-            print("Ничего не найдено")
-
-    def get_tomorrow_homework(self):
+    def show_tomorrow_homework():
         weekdays = {
             "Monday": "Понедельник",
             "Tuesday": "Вторник",
@@ -212,110 +170,204 @@ class Schooler:
         today_en = datetime.now().strftime("%A")
         today_index = days_order.index(today_en)
 
+        # Ищем следующий учебный день
         for offset in range(1, 8):
             next_index = (today_index + offset) % 7
             next_en = days_order[next_index]
             next_ru = weekdays[next_en]
 
-            if next_ru in self.schedule:
-                if offset == 1:
-                    print(f"\nЗавтра, {next_ru.upper()}:")
+            if next_ru in app.schedule:
+                title_text = f"ЗАВТРА, {next_ru.upper()}" if offset == 1 else f"БЛИЖАЙШИЙ ДЕНЬ ({next_ru.upper()})"
+
+                title = ft.Text(title_text, size=22, weight=ft.FontWeight.BOLD)
+
+                subjects = app.schedule.get(next_ru, [])
+                subject_items = []
+                for i, subject in enumerate(subjects, 1):
+                    subject_items.append(ft.Text(f"{i}. {subject}", size=16))
+
+                schedule_card = ft.Card(
+                    ft.Container(
+                        content=ft.Column(
+                            [ft.Text("Расписание", size=18, weight=ft.FontWeight.BOLD)] + subject_items,
+                            spacing=10
+
+                        ),
+                        padding=15
+                    )
+                )
+                day_hw = app.homeworks.get(next_ru, {})
+                non_empty = {s: t for s, t in day_hw.items() if t and t.strip()}
+
+                if non_empty:
+                    hw_items = [ft.Text(f"* {s}: {t}", size=16) for s, t in non_empty.items()]
+
+                    hw_card = ft.Card(
+                        ft.Container(
+                            content=ft.Column(
+                                [ft.Text("Домашнее задание", size=18, weight=ft.FontWeight.BOLD)] + hw_items,
+                                spacing=10
+                            ),
+                            padding=15
+                        )
+                    )
                 else:
-                    print(f"Ближайший учебный день ({next_ru.upper()}):")
-                self.show_day(next_ru)
+                    hw_card = ft.Card(
+                        ft.Container(
+                            content=ft.Text("Нет домашнего задания", size=16),
+                            padding=15
+                        )
+                    )
+
+                back_btn = ft.TextButton("<- Назад", on_click=lambda _: show_main_menu())
+
+                content = ft.Column(
+                    [title, ft.Container(height=20), schedule_card, ft.Container(height=10),
+                     hw_card, ft.Container(height=20), back_btn],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                )
+
+                update_content(content)
                 return
 
-        print("Нет учебных дней в расписании!")
+        content = ft.Column([
+            ft.Text("Нет учебных дней", size=20),
+            ft.TextButton("<- Назад", on_click=lambda _: show_main_menu())
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        update_content(content)
 
-    def manage_links(self):
-        while True:
-            print('\n' + '-'*50)
-            print("Полезные ссылки".upper())
-            print('-'*50)
+    def show_search():
+        search_field = ft.TextField(
+            label="Введите предмет",
+            width=300,
+            autofocus=True
+        )
 
-            if self.useful_links:
-                print("\nСохранённые ссылки:")
-                for i, link in enumerate(self.useful_links, 1):
-                    print(f'{i}. {link['name']}: {link['url']}')
+        results_text = ft.Text("", size=14)
+
+        def do_search(e):
+            query = search_field.value.lower()
+            found = []
+
+            for day, tasks in app.homeworks.items():
+                for subject, task in tasks.items():
+                    if task and task.strip() and query in subject.lower():
+                        found.append(f"{day} | {subject}: {task}")
+
+            if found:
+                results_text.value = "\n".join(found)
             else:
-                print("Нет сохранённых ссылок")
+                results_text.value = "Ничего не найдено"
+            page.update()
 
-            print('\n1. Добавить ссылку')
-            print('2. Удалить ссылку')
-            print('3. Назад')
+        search_btn = ft.ElevatedButton("Искать", on_click=do_search)
+        back_btn = ft.TextButton("<- Назад", on_click=lambda _: show_main_menu())
 
-            choice = input('Выберите действие:')
+        content = ft.Column([
+            ft.Text("Поиск домашнего задания", size=24, weight=ft.FontWeight.BOLD),
+            ft.Container(height=20),
+            search_field,
+            search_btn,
+            ft.Container(height=20),
+            results_text,
+            ft.Container(height=20),
+            back_btn
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
-            if choice == '1':
-                name = input("Название: ")
-                url = input("Ссылка: ")
-                self.useful_links.append({'name': name, 'url': url})
-                self.save_data()
-                print(f"Ссылка '{name}' успешно добавлена")
-            elif choice == '2' and self.useful_links:
-                try:
-                    num = int(input('Номер ссылки для удаления: ')) - 1
-                    if 0 <= num < len(self.useful_links):
-                        removed = self.useful_links.pop(num)
-                        self.save_data()
-                        print(f"Ссылка {removed['name']} успешно удалена")
-                except ValueError:
-                    print("Введите число")
-            elif choice == '3':
-                break
+        update_content(content)
 
-    @staticmethod
-    def show_menu():
-        """Главное меню"""
-        print('\n'+'-'*30)
-        print("\tSCHOOLER")
-        print('-'*30)
+    def show_add_homework():
+        day_dropdown = ft.Dropdown(
+            label="День недели",
+            width=300,
+            options=[ft.dropdown.Option(day) for day in app.schedule.keys()]
+        )
 
-        print('1. Посмотреть день')
-        print('2. Вся неделя')
-        print('3. Добавить домашнее задание')
-        print('4. Редактировать/удалить домащнее задания')
-        print('5. Поиск по предмету')
-        print('6. Домашка на завтра')
-        print('7. Полезные ссылки')
-        print('0. Выход')
-        print('-' * 30)
+        subject_dropdown = ft.Dropdown(
+            label="Предмет",
+            width=300,
+            options=[],
+            disabled=True
+        )
 
+        task_field = ft.TextField(
+            label="Задание",
+            width=300,
+            multiline=True,
+            min_lines=2,
+            max_lines=4
+        )
 
-def main():
-    app = Schooler()
+        status_text = ft.Text("", size=14, color=ft.Colors.GREEN)
 
-    while True:
-        app.show_menu()
-        choice = input('Выберите действие: ')
-
-        if choice == '1':
-            print("\nДни:", ", ".join(app.schedule.keys()))
-            day = input("Введите день: ")
-            if day in app.schedule:
-                app.show_day(day)
+        def update_subjects(day):
+            if day and day in app.schedule:
+                subject_options = [ft.dropdown.Option(subj) for subj in app.schedule[day]]
+                subject_dropdown.options = subject_options
+                subject_dropdown.disabled = False
+                if subject_options:
+                    subject_dropdown.value = subject_options[0].key
+                status_text.value = ""
             else:
-                print("День не найден!")
-        elif choice == '2':
-            app.show_all_week()
-        elif choice == '3':
-            app.add_homework()
-        elif choice == '4':
-            app.edit_homework()
-        elif choice == '5':
-            app.search_homework()
-        elif choice == '6':
-            app.get_tomorrow_homework()
-        elif choice == '7':
-            app.manage_links()
-        elif choice == '0':
-            print('До свидания!')
-            break
-        else:
-            print("Неверный выбор! Попробуйте ещё раз!")
+                subject_dropdown.options = []
+                subject_dropdown.disabled = True
+                subject_dropdown.value = None
+            page.update()
 
-        input("\nНажмите Enter для продолжения")
+        def on_day_change(e):
+            update_subjects(day_dropdown.value)
+
+        day_dropdown.on_select = on_day_change
+
+        def add_homework_action(e):
+            day = day_dropdown.value
+            subject = subject_dropdown.value
+            task = task_field.value.strip()
+
+            if not day:
+                status_text.value = "Выберите день"
+                status_text.color = ft.Colors.RED
+            elif not subject:
+                status_text.value = "Выберите предмет"
+                status_text.color = ft.Colors.RED
+            elif not task:
+                status_text.value = "Введите задание"
+                status_text.color = ft.Colors.RED
+            else:
+                if day not in app.homeworks:
+                    app.homeworks[day] = {}
+
+                app.homeworks[day][subject] = task
+                app.save_data()
+
+                status_text.value = f"Добавлено! {day} | {subject}"
+                status_text.color = ft.Colors.GREEN
+
+                task_field.value = ""
+                page.update()
+
+        add_btn = ft.ElevatedButton("Добавить", on_click=add_homework_action)
+        back_btn = ft.TextButton("← Назад", on_click=lambda _: show_main_menu())
+
+        content = ft.Column([
+            ft.Text("Добавить домашнее задание", size=24, weight=ft.FontWeight.BOLD),
+            ft.Container(height=20),
+            day_dropdown,
+            ft.Container(height=20),
+            subject_dropdown,
+            ft.Container(height=20),
+            task_field,
+            ft.Container(height=20),
+            add_btn,
+            status_text,
+            ft.Container(height=20),
+            back_btn
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+
+        update_content(content)
+
+    show_main_menu()
 
 
 if __name__ == '__main__':
-    main()
+    ft.app(target=main)
